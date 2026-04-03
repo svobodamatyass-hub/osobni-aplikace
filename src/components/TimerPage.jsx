@@ -42,15 +42,34 @@ const playTickSound = () => {
 };
 
 function WheelPicker({ value, min, max, onChange, label }) {
-  const range = Array.from({ length: max - min + 1 }, (_, i) => min + i);
-  const containerRef = useRef(null);
   const itemHeight = 45;
+  const range = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  // Trojitý seznam pro efekt nekonečného kolečka
+  const infiniteRange = [...range, ...range, ...range];
+  const containerRef = useRef(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  // Inicializace na střední sadu čísel
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = (range.length + value - min) * itemHeight;
+    }
+  }, []);
 
   const handleScroll = () => {
     if (!containerRef.current) return;
     const scrollY = containerRef.current.scrollTop;
-    const index = Math.round(scrollY / itemHeight);
-    const newValue = range[index % range.length];
+    const centerOffset = range.length * itemHeight;
+    
+    // "Nekonečná" logika: pokud jsme moc nahoře nebo dole, skočíme doprostřed
+    if (scrollY < centerOffset - (itemHeight * 2)) {
+      containerRef.current.scrollTop = scrollY + centerOffset;
+    } else if (scrollY > centerOffset * 2) {
+      containerRef.current.scrollTop = scrollY - centerOffset;
+    }
+
+    const index = Math.round(containerRef.current.scrollTop / itemHeight) % range.length;
+    const newValue = range[index];
     
     if (newValue !== value) {
       onChange(newValue);
@@ -59,20 +78,14 @@ function WheelPicker({ value, min, max, onChange, label }) {
     }
   };
 
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = value * itemHeight;
-    }
-  }, []);
-
   return (
     <div className="wheel-picker-container">
       <div className="wheel-picker-label">{label}</div>
       <div className="wheel-picker-view" ref={containerRef} onScroll={handleScroll}>
         <div className="wheel-picker-spacer" style={{ height: itemHeight }} />
-        {range.map((num) => (
+        {infiniteRange.map((num, idx) => (
           <div 
-            key={num} 
+            key={`${num}-${idx}`} 
             className={`wheel-item ${value === num ? 'active' : ''}`}
             style={{ height: itemHeight, lineHeight: `${itemHeight}px` }}
           >
