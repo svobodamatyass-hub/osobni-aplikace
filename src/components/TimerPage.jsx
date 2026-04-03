@@ -29,26 +29,38 @@ const playRhythmicSound = () => {
 };
 
 export default function TimerPage() {
-  const [minutes, setMinutes] = useState(25);
+  const [hours, setHours] = useState(0);
+  const [minutes, setMinutes] = useState(45);
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [mode, setMode] = useState('deep'); // 'deep' or 'light'
+  const [totalSecondsAtStart, setTotalSecondsAtStart] = useState(45 * 60);
   const timerRef = useRef(null);
 
   // Constants for visual ring
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius;
-  const initialTotalSeconds = minutes * 60;
-  const currentTotalSeconds = minutes * 60 + seconds;
-  const percentage = Math.max(0, Math.min(100, Math.round(((minutes * 60 + seconds) / (initialTotalSeconds || 1)) * 100)));
-  const offset = circumference - (percentage / 100) * circumference;
+  const currentTotalSeconds = hours * 3600 + minutes * 60 + seconds;
+  const percentage = totalSecondsAtStart === 0 ? 0 : Math.max(0, Math.min(100, Math.round((currentTotalSeconds / totalSecondsAtStart) * 100)));
 
   useEffect(() => {
     if (isActive) {
       timerRef.current = setInterval(() => {
-        setSeconds((prevSeconds) => {
-          if (prevSeconds === 0) {
-            if (minutes === 0) {
+        setSeconds((s) => {
+          if (s > 0) return s - 1;
+          
+          setMinutes((m) => {
+            if (m > 0) {
+              setSeconds(59);
+              return m - 1;
+            }
+            
+            setHours((h) => {
+              if (h > 0) {
+                setMinutes(59);
+                setSeconds(59);
+                return h - 1;
+              }
+              
+              // End reached
               clearInterval(timerRef.current);
               setIsActive(false);
               playRhythmicSound();
@@ -58,43 +70,53 @@ export default function TimerPage() {
                 });
               }
               return 0;
-            }
-            setMinutes((prevMin) => prevMin - 1);
-            return 59;
-          }
-          return prevSeconds - 1;
+            });
+            return 0;
+          });
+          return 0;
         });
       }, 1000);
     } else {
       clearInterval(timerRef.current);
     }
     return () => clearInterval(timerRef.current);
-  }, [isActive, minutes]);
+  }, [isActive, mode]);
 
   const toggleTimer = () => {
-    if (!isActive && typeof Notification !== 'undefined' && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-      Notification.requestPermission();
+    if (!isActive) {
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+      setTotalSecondsAtStart(hours * 3600 + minutes * 60 + seconds);
     }
     setIsActive(!isActive);
   };
 
   const resetTimer = () => {
     setIsActive(false);
-    setMinutes(mode === 'deep' ? 45 : 25);
-    setSeconds(0);
+    if (mode === 'deep') {
+      setHours(0); setMinutes(45); setSeconds(0);
+    } else {
+      setHours(0); setMinutes(25); setSeconds(0);
+    }
   };
 
   const handleModeChange = (newMode) => {
     setMode(newMode);
     setIsActive(false);
-    setMinutes(newMode === 'deep' ? 45 : 25);
-    setSeconds(0);
+    if (newMode === 'deep') {
+      setHours(0); setMinutes(45); setSeconds(0);
+    } else {
+      setHours(0); setMinutes(25); setSeconds(0);
+    }
   };
 
-  const adjustMinutes = (amount) => {
+  const updateTime = (type, val) => {
     if (isActive) return;
-    setMinutes((prev) => Math.max(1, prev + amount));
-    setSeconds(0);
+    const v = parseInt(val) || 0;
+    if (type === 'h') setHours(Math.max(0, Math.min(23, v)));
+    if (type === 'm') setMinutes(Math.max(0, Math.min(59, v)));
+    if (type === 's') setSeconds(Math.max(0, Math.min(59, v)));
   };
 
   return (
@@ -163,19 +185,14 @@ export default function TimerPage() {
             transform: 'translate(-50%, -50%)',
             textAlign: 'center'
           }}>
-            <h2 style={{ fontSize: '42px', fontWeight: '700', margin: 0 }}>
-              {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
+            <h2 style={{ fontSize: '36px', fontWeight: '700', margin: 0 }}>
+              {hours > 0 ? `${String(hours).padStart(2, '0')}:` : ''}{String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
             </h2>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
               {mode === 'deep' ? 'Hluboká práce' : 'Lehká práce'}
             </p>
           </div>
         </div>
-
-        {/* Custom Logic Note: 
-            Tato sekce bude v budoucnu omezovat přístup k Instagramu a notifikacím.
-            Při Deep Work módu budou notifikace zcela potlačeny.
-        */}
 
         <div style={{ display: 'flex', gap: '16px', width: '100%' }}>
           <button 
@@ -192,14 +209,46 @@ export default function TimerPage() {
         </div>
       </section>
 
-      {/* Adjuster */}
+      {/* Manual Adjuster */}
       {!isActive && (
-        <div className="card-glass" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span className="section-label">Nastavení minut</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button className="day-dot-btn" onClick={() => adjustMinutes(-5)}>-5</button>
-            <span style={{ fontSize: '20px', fontWeight: '600', minWidth: '40px', textAlign: 'center' }}>{minutes}</span>
-            <button className="day-dot-btn" onClick={() => adjustMinutes(5)}>+5</button>
+        <div className="card-glass" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <span className="section-label" style={{ marginBottom: '8px' }}>Ruční nastavení času</span>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <input 
+                type="number" 
+                value={hours} 
+                onChange={(e) => updateTime('h', e.target.value)}
+                className="task-input"
+                style={{ width: '60px', textAlign: 'center', fontSize: '20px', padding: '10px' }}
+                placeholder="00" min="0" max="23"
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>HOD</span>
+            </div>
+            <span style={{ fontSize: '24px', alignSelf: 'center', color: 'var(--text-muted)' }}>:</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <input 
+                type="number" 
+                value={minutes} 
+                onChange={(e) => updateTime('m', e.target.value)}
+                className="task-input"
+                style={{ width: '60px', textAlign: 'center', fontSize: '20px', padding: '10px' }}
+                placeholder="00" min="0" max="59"
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>MIN</span>
+            </div>
+            <span style={{ fontSize: '24px', alignSelf: 'center', color: 'var(--text-muted)' }}>:</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <input 
+                type="number" 
+                value={seconds} 
+                onChange={(e) => updateTime('s', e.target.value)}
+                className="task-input"
+                style={{ width: '60px', textAlign: 'center', fontSize: '20px', padding: '10px' }}
+                placeholder="00" min="0" max="59"
+              />
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>SEK</span>
+            </div>
           </div>
         </div>
       )}
