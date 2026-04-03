@@ -144,7 +144,7 @@ app.get('/api/notes', (req, res) => {
 // POST new note
 app.post('/api/notes', (req, res) => {
   const notes = readJSON(NOTES_FILE);
-  const { content } = req.body;
+  const { content, section } = req.body;
 
   if (!content) {
     return res.status(400).json({ error: 'Obsah poznámky je povinný.' });
@@ -153,6 +153,7 @@ app.post('/api/notes', (req, res) => {
   const newNote = {
     id: Date.now(),
     content,
+    section: section || 'Obecné',
     date: new Date().toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short' }),
     created: new Date().toISOString(),
   };

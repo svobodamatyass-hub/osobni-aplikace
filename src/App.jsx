@@ -213,9 +213,9 @@ function App() {
     }
   }
 
-  async function handleSaveNote(content) {
+  async function handleSaveNote(content, section) {
     try {
-      const newNote = await api.createNote(content);
+      const newNote = await api.createNote({ content, section });
       setNotes(prev => [newNote, ...prev]);
       hideAllModals();
       setCurrentView('notes');
@@ -355,6 +355,7 @@ function App() {
         isOpen={showNoteModal}
         onClose={hideAllModals}
         onSave={handleSaveNote}
+        existingSections={[...new Set(notes.map(n => n.section).filter(Boolean))]}
       />
 
       {/* Bottom Navigation */}

@@ -44,11 +44,11 @@ export async function fetchNotes() {
   return res.json();
 }
 
-export async function createNote(content) {
+export async function createNote({ content, section }) {
   const res = await fetch(`${API_BASE}/notes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, section }),
   });
   if (!res.ok) throw new Error('Nepodařilo se vytvořit poznámku');
   return res.json();
