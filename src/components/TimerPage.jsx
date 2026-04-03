@@ -4,13 +4,13 @@ import { PROGRESS_LABELS } from '../constants';
 const playRhythmicSound = () => {
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const playBeep = (time, frequency, duration) => {
+    const playBeep = (time, frequency, duration, volume = 0.5) => {
       const oscillator = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
       oscillator.type = 'sine';
       oscillator.frequency.setValueAtTime(frequency, time);
       gainNode.gain.setValueAtTime(0, time);
-      gainNode.gain.linearRampToValueAtTime(0.5, time + 0.05);
+      gainNode.gain.linearRampToValueAtTime(volume, time + 0.01);
       gainNode.gain.linearRampToValueAtTime(0, time + duration);
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
@@ -18,15 +18,73 @@ const playRhythmicSound = () => {
       oscillator.stop(time + duration);
     };
     const now = audioCtx.currentTime;
-    // Rytmická melodie: Ding (0s), Ding (0.6s), Ding-Ding (1.2s - 1.5s)
     playBeep(now, 523.25, 0.4); 
     playBeep(now + 0.6, 523.25, 0.4); 
     playBeep(now + 1.2, 523.25, 0.2); 
     playBeep(now + 1.5, 659.25, 0.6); 
-  } catch (e) {
-    console.warn('AudioContext není podporován nebo byl zablokován', e);
-  }
+  } catch (e) {}
 };
+
+const playTickSound = () => {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.05);
+  } catch (e) {}
+};
+
+function WheelPicker({ value, min, max, onChange, label }) {
+  const range = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const containerRef = useRef(null);
+  const itemHeight = 45;
+
+  const handleScroll = () => {
+    if (!containerRef.current) return;
+    const scrollY = containerRef.current.scrollTop;
+    const index = Math.round(scrollY / itemHeight);
+    const newValue = range[index % range.length];
+    
+    if (newValue !== value) {
+      onChange(newValue);
+      playTickSound();
+      if (window.navigator.vibrate) window.navigator.vibrate(5);
+    }
+  };
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollTop = value * itemHeight;
+    }
+  }, []);
+
+  return (
+    <div className="wheel-picker-container">
+      <div className="wheel-picker-label">{label}</div>
+      <div className="wheel-picker-view" ref={containerRef} onScroll={handleScroll}>
+        <div className="wheel-picker-spacer" style={{ height: itemHeight }} />
+        {range.map((num) => (
+          <div 
+            key={num} 
+            className={`wheel-item ${value === num ? 'active' : ''}`}
+            style={{ height: itemHeight, lineHeight: `${itemHeight}px` }}
+          >
+            {String(num).padStart(2, '0')}
+          </div>
+        ))}
+        <div className="wheel-picker-spacer" style={{ height: itemHeight }} />
+      </div>
+      <div className="wheel-picker-selection-overlay" style={{ height: itemHeight, top: itemHeight }} />
+    </div>
+  );
+}
 
 export default function TimerPage() {
   const [hours, setHours] = useState(0);
@@ -209,46 +267,16 @@ export default function TimerPage() {
         </div>
       </section>
 
-      {/* Manual Adjuster */}
+      {/* Manual Adjuster Wheel Picker */}
       {!isActive && (
-        <div className="card-glass" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <span className="section-label" style={{ marginBottom: '8px' }}>Ruční nastavení času</span>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <input 
-                type="number" 
-                value={hours} 
-                onChange={(e) => updateTime('h', e.target.value)}
-                className="task-input"
-                style={{ width: '60px', textAlign: 'center', fontSize: '20px', padding: '10px' }}
-                placeholder="00" min="0" max="23"
-              />
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>HOD</span>
-            </div>
-            <span style={{ fontSize: '24px', alignSelf: 'center', color: 'var(--text-muted)' }}>:</span>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <input 
-                type="number" 
-                value={minutes} 
-                onChange={(e) => updateTime('m', e.target.value)}
-                className="task-input"
-                style={{ width: '60px', textAlign: 'center', fontSize: '20px', padding: '10px' }}
-                placeholder="00" min="0" max="59"
-              />
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>MIN</span>
-            </div>
-            <span style={{ fontSize: '24px', alignSelf: 'center', color: 'var(--text-muted)' }}>:</span>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <input 
-                type="number" 
-                value={seconds} 
-                onChange={(e) => updateTime('s', e.target.value)}
-                className="task-input"
-                style={{ width: '60px', textAlign: 'center', fontSize: '20px', padding: '10px' }}
-                placeholder="00" min="0" max="59"
-              />
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>SEK</span>
-            </div>
+        <div className="card-glass" style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
+          <span className="section-label" style={{ marginBottom: '8px' }}>Nastavení času</span>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '5px', width: '100%' }}>
+            <WheelPicker label="HOD" value={hours} min={0} max={23} onChange={(v) => updateTime('h', v)} />
+            <div style={{ fontSize: '24px', fontWeight: 'bold', paddingTop: '55px', color: 'rgba(255,255,255,0.2)' }}>:</div>
+            <WheelPicker label="MIN" value={minutes} min={0} max={59} onChange={(v) => updateTime('m', v)} />
+            <div style={{ fontSize: '24px', fontWeight: 'bold', paddingTop: '55px', color: 'rgba(255,255,255,0.2)' }}>:</div>
+            <WheelPicker label="SEK" value={seconds} min={0} max={59} onChange={(v) => updateTime('s', v)} />
           </div>
         </div>
       )}

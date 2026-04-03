@@ -382,6 +382,66 @@ body {
     font-weight: 500;
 }
 
+/* Wheel Picker Styles */
+.wheel-picker-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    height: 135px; /* 3 * 45px itemHeight */
+    overflow: hidden;
+}
+
+.wheel-picker-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 700;
+    margin-bottom: 5px;
+    letter-spacing: 1px;
+}
+
+.wheel-picker-view {
+    width: 100%;
+    height: 135px;
+    overflow-y: scroll;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;  /* IE/Edge */
+    scroll-snap-type: y mandatory;
+    padding: 0 5px;
+}
+
+.wheel-picker-view::-webkit-scrollbar {
+    display: none; /* Safari/Chrome */
+}
+
+.wheel-item {
+    width: 100%;
+    text-align: center;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-muted);
+    scroll-snap-align: center;
+    transition: all 0.2s ease;
+    opacity: 0.3;
+}
+
+.wheel-item.active {
+    color: var(--text-primary);
+    transform: scale(1.1);
+    opacity: 1;
+}
+
+.wheel-picker-selection-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+}
+
 .nav-item.fab {
     flex: 0 0 60px;
     height: 60px;
