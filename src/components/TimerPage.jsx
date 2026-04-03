@@ -1,6 +1,33 @@
 import { useState, useEffect, useRef } from 'react';
 import { PROGRESS_LABELS } from '../constants';
 
+const playRhythmicSound = () => {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const playBeep = (time, frequency, duration) => {
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, time);
+      gainNode.gain.setValueAtTime(0, time);
+      gainNode.gain.linearRampToValueAtTime(0.5, time + 0.05);
+      gainNode.gain.linearRampToValueAtTime(0, time + duration);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start(time);
+      oscillator.stop(time + duration);
+    };
+    const now = audioCtx.currentTime;
+    // Rytmická melodie: Ding (0s), Ding (0.6s), Ding-Ding (1.2s - 1.5s)
+    playBeep(now, 523.25, 0.4); 
+    playBeep(now + 0.6, 523.25, 0.4); 
+    playBeep(now + 1.2, 523.25, 0.2); 
+    playBeep(now + 1.5, 659.25, 0.6); 
+  } catch (e) {
+    console.warn('AudioContext není podporován nebo byl zablokován', e);
+  }
+};
+
 export default function TimerPage() {
   const [minutes, setMinutes] = useState(25);
   const [seconds, setSeconds] = useState(0);
@@ -24,7 +51,12 @@ export default function TimerPage() {
             if (minutes === 0) {
               clearInterval(timerRef.current);
               setIsActive(false);
-              alert('Čas vypršel!');
+              playRhythmicSound();
+              if (Notification.permission === 'granted') {
+                new Notification('Časovač vypršel!', {
+                  body: mode === 'deep' ? 'Hluboká práce dokončena.' : 'Lehká práce dokončena.',
+                });
+              }
               return 0;
             }
             setMinutes((prevMin) => prevMin - 1);
@@ -39,7 +71,12 @@ export default function TimerPage() {
     return () => clearInterval(timerRef.current);
   }, [isActive, minutes]);
 
-  const toggleTimer = () => setIsActive(!isActive);
+  const toggleTimer = () => {
+    if (!isActive && typeof Notification !== 'undefined' && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+    setIsActive(!isActive);
+  };
 
   const resetTimer = () => {
     setIsActive(false);
@@ -169,10 +206,10 @@ export default function TimerPage() {
 
       {/* Blocking concept visualization */}
       <div style={{ marginTop: '24px', opacity: mode === 'deep' ? 1 : 0.4, transition: 'opacity 0.3s' }}>
-        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', fontStyle: 'italic' }}>
+        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', textAlign: 'center', fontStyle: 'italic', padding: '0 10px' }}>
           {mode === 'deep' 
-            ? '🔒 V tomto režimu bude omezen přístup k Instagramu a notifikacím.' 
-            : '🔔 V tomto režimu budou povoleny důležité notifikace.'}
+            ? '🔒 Deep work zapne režim nerušit. Pokud budeš mít telefonát, bude zvonit, ale nebudou chodit žádné notifikace.' 
+            : '🔔 Light Work: Budou povoleny důležité notifikace pro běžnou práci.'}
         </p>
       </div>
     </div>
